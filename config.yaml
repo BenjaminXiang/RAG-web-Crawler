@@ -1,0 +1,34 @@
+# RAG Web Crawler Configuration
+
+crawler:
+  rate_limit: 1.0          # requests per second
+  concurrency: 1           # max concurrent requests
+  timeout: 30              # request timeout in seconds
+  user_agent: "RAG-web-Crawler/0.1.0"
+  respect_robots_txt: true
+  headers: {}              # additional HTTP headers
+
+processor:
+  chunk_size: 512          # max tokens per chunk
+  chunk_overlap: 50        # overlap tokens between chunks
+  output_dir: "./output/markdown"  # directory for Markdown file output
+
+store:
+  milvus:
+    uri: "http://localhost:19530"
+    collection_name: "rag_chunks"
+  embedding:
+    provider: "local"      # "local" or "openai"
+    model: "all-MiniLM-L6-v2"  # local model name
+    # openai_model: "text-embedding-3-small"  # when provider is "openai"
+  export_dir: "./output/jsonl"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+llm:
+  provider: "local"
+  base_url: "http://star.sustech.edu.cn/service/model/qwen35/v1"
+  api_key: "k8#pL2@mN9!qjfkew87@#$0204"
+  model: "qwen3"

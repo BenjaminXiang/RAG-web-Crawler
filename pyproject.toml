@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rag-web-crawler"
+version = "0.1.0"
+description = "RAG-powered web crawler with vector storage and retrieval"
+requires-python = ">=3.10"
+dependencies = [
+    "crawl4ai",
+    "pymilvus",
+    "sentence-transformers",
+    "openai",
+    "fastapi",
+    "uvicorn",
+    "pyyaml",
+    "click",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_crawler"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+
+[project.scripts]
+rag-crawler = "rag_crawler.cli:main"
