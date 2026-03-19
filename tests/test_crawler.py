@@ -9,7 +9,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from rag_crawler.config import CrawlerConfig
-from rag_crawler.crawler.crawler import CrawlResult, _is_allowed_by_robots, _robots_cache, crawl_urls
+from rag_crawler.crawler.crawler import (
+    CrawlResult,
+    _html_to_markdown_fallback,
+    _is_allowed_by_robots,
+    _robots_cache,
+    crawl_urls,
+)
 
 
 @pytest.fixture
@@ -156,6 +162,55 @@ class TestCrawlUrls:
 
         assert results[0].markdown == "# From Object"
 
+    @patch("rag_crawler.crawler.crawler._http_fallback_crawl")
+    @patch("rag_crawler.crawler.crawler.AsyncWebCrawler")
+    def test_http_fallback_recovers_antibot_result(self, MockCrawler, mock_fallback, crawler_config):
+        mock_result = MagicMock()
+        mock_result.success = False
+        mock_result.error_message = "Blocked by anti-bot protection: Structural: minimal_text, no_content_elements"
+
+        mock_instance = AsyncMock()
+        mock_instance.arun = AsyncMock(return_value=mock_result)
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=False)
+        MockCrawler.return_value = mock_instance
+
+        mock_fallback.return_value = CrawlResult(
+            url="https://example.com",
+            html="<html><body><h1>Recovered</h1></body></html>",
+            markdown="# Recovered",
+            success=True,
+        )
+
+        results = asyncio.run(crawl_urls(["https://example.com"], crawler_config))
+
+        assert len(results) == 1
+        assert results[0].success is True
+        assert results[0].markdown == "# Recovered"
+        mock_fallback.assert_called_once()
+
+    @patch("rag_crawler.crawler.crawler._http_fallback_crawl")
+    @patch("rag_crawler.crawler.crawler.AsyncWebCrawler")
+    def test_http_fallback_recovers_navigation_exception(self, MockCrawler, mock_fallback, crawler_config):
+        mock_instance = AsyncMock()
+        mock_instance.arun = AsyncMock(side_effect=RuntimeError("Page.goto: net::ERR_NETWORK_CHANGED"))
+        mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+        mock_instance.__aexit__ = AsyncMock(return_value=False)
+        MockCrawler.return_value = mock_instance
+
+        mock_fallback.return_value = CrawlResult(
+            url="https://example.com",
+            html="<html><body><p>Recovered</p></body></html>",
+            markdown="# Recovered\n\nRecovered",
+            success=True,
+        )
+
+        results = asyncio.run(crawl_urls(["https://example.com"], crawler_config))
+
+        assert len(results) == 1
+        assert results[0].success is True
+        mock_fallback.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # robots.txt handling
@@ -222,3 +277,26 @@ class TestRateLimiting:
         # Just verify it completes without error with rate limiting active
         results = asyncio.run(crawl_urls(["https://a.com"], config))
         assert results[0].success is True
+
+
+class TestHttpFallbackFormatting:
+    def test_html_fallback_extracts_title_and_links(self):
+        html = """
+        <html>
+          <head><title>招生简章</title></head>
+          <body>
+            <nav>首页</nav>
+            <div class="content">
+              <h1>南方科技大学2026年综合评价招生简章</h1>
+              <p>欢迎报考南方科技大学。</p>
+              <p><a href="/apply">报名入口</a></p>
+            </div>
+          </body>
+        </html>
+        """
+
+        markdown = _html_to_markdown_fallback(html, "https://example.com/post")
+
+        assert "# 招生简章" in markdown or "# 南方科技大学2026年综合评价招生简章" in markdown
+        assert "欢迎报考南方科技大学。" in markdown
+        assert "[报名入口](https://example.com/apply)" in markdown
