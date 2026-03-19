@@ -1,14 +1,43 @@
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
 *.egg-info/
+*.egg
 dist/
 build/
 .eggs/
-*.egg
+
+# Virtual environments
 .venv/
 venv/
 .env
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# AI tools
+.claude/
+.codex/
+
+# Testing
 .pytest_cache/
 .mypy_cache/
+.coverage
+htmlcov/
+
+# Project outputs
 test_output/
 output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp test files
+test_llm_client.py
+test_url.md
